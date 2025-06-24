@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Generate changelog
+      id: changelog
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: commits } = await github.rest.repos.compareCommits({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            base: 'main',
+            head: context.sha
+          });
+          
+          const changelog = commits.commits
+            .map(commit => `- ${commit.commit.message}`)
+            .join('\n');
+          
+          return changelog;
+          
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Changes in this Release
+          
+          ${{ steps.changelog.outputs.result }}
+          
+          ## Docker Images
+          
+          The following Docker images have been built and pushed:
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/chat-service:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/cms-service:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/crm-service:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/notification-service:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/project-service:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/property-service:${{ github.ref_name }}`
+          - `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/user-service:${{ github.ref_name }}`
+        draft: false
+        prerelease: false 
